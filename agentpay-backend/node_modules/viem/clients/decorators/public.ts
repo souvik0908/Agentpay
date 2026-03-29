@@ -74,6 +74,11 @@ import {
   estimateMaxPriorityFeePerGas,
 } from '../../actions/public/estimateMaxPriorityFeePerGas.js'
 import {
+  type FillTransactionParameters,
+  type FillTransactionReturnType,
+  fillTransaction,
+} from '../../actions/public/fillTransaction.js'
+import {
   type GetBalanceParameters,
   type GetBalanceReturnType,
   getBalance,
@@ -111,6 +116,11 @@ import {
   type GetContractEventsReturnType,
   getContractEvents,
 } from '../../actions/public/getContractEvents.js'
+import {
+  type GetDelegationParameters,
+  type GetDelegationReturnType,
+  getDelegation,
+} from '../../actions/public/getDelegation.js'
 import {
   type GetEip712DomainParameters,
   type GetEip712DomainReturnType,
@@ -544,6 +554,40 @@ export type PublicActions<
     args: EstimateGasParameters<chain>,
   ) => Promise<EstimateGasReturnType>
   /**
+   * Fills a transaction request with the necessary fields to be signed over.
+   *
+   * - Docs: https://viem.sh/docs/actions/public/fillTransaction
+   *
+   * @param client - Client to use
+   * @param parameters - {@link FillTransactionParameters}
+   * @returns The filled transaction. {@link FillTransactionReturnType}
+   *
+   * @example
+   * import { createPublicClient, http } from 'viem'
+   * import { mainnet } from 'viem/chains'
+   *
+   * const client = createPublicClient({
+   *   chain: mainnet,
+   *   transport: http(),
+   * })
+   * const result = await client.fillTransaction({
+   *   account: '0xA0Cf798816D4b9b9866b5330EEa46a18382f251e',
+   *   to: '0x70997970c51812dc3a010c7d01b50e0d17dc79c8',
+   *   value: parseEther('1'),
+   * })
+   */
+  fillTransaction: <
+    chainOverride extends Chain | undefined = undefined,
+    accountOverride extends Account | Address | undefined = undefined,
+  >(
+    args: FillTransactionParameters<
+      chain,
+      account,
+      chainOverride,
+      accountOverride
+    >,
+  ) => Promise<FillTransactionReturnType<chain, chainOverride>>
+  /**
    * Returns the balance of an address in wei.
    *
    * - Docs: https://viem.sh/docs/actions/public/getBalance
@@ -761,6 +805,29 @@ export type PublicActions<
   ) => Promise<
     GetContractEventsReturnType<abi, eventName, strict, fromBlock, toBlock>
   >
+  /**
+   * Returns the address that an account has delegated to via EIP-7702.
+   *
+   * - Docs: https://viem.sh/docs/actions/public/getDelegation
+   *
+   * @param args - {@link GetDelegationParameters}
+   * @returns The delegated address, or undefined if not delegated. {@link GetDelegationReturnType}
+   *
+   * @example
+   * import { createPublicClient, http } from 'viem'
+   * import { mainnet } from 'viem/chains'
+   *
+   * const client = createPublicClient({
+   *   chain: mainnet,
+   *   transport: http(),
+   * })
+   * const delegation = await client.getDelegation({
+   *   address: '0xA0Cf798816D4b9b9866b5330EEa46a18382f251e',
+   * })
+   */
+  getDelegation: (
+    args: GetDelegationParameters,
+  ) => Promise<GetDelegationReturnType>
   /**
    * Reads the EIP-712 domain from a contract, based on the ERC-5267 specification.
    *
@@ -2024,6 +2091,7 @@ export function publicActions<
     getChainId: () => getChainId(client),
     getCode: (args) => getCode(client, args),
     getContractEvents: (args) => getContractEvents(client, args),
+    getDelegation: (args) => getDelegation(client, args),
     getEip712Domain: (args) => getEip712Domain(client, args),
     getEnsAddress: (args) => getEnsAddress(client, args),
     getEnsAvatar: (args) => getEnsAvatar(client, args),
@@ -2039,6 +2107,7 @@ export function publicActions<
     getProof: (args) => getProof(client, args),
     estimateMaxPriorityFeePerGas: (args) =>
       estimateMaxPriorityFeePerGas(client, args),
+    fillTransaction: (args) => fillTransaction(client, args),
     getStorageAt: (args) => getStorageAt(client, args),
     getTransaction: (args) => getTransaction(client, args),
     getTransactionConfirmations: (args) =>

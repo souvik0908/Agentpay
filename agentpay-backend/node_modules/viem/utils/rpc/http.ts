@@ -77,9 +77,11 @@ export type HttpRpcClient = {
 }
 
 export function getHttpRpcClient(
-  url: string,
+  url_: string,
   options: HttpRpcClientOptions = {},
 ): HttpRpcClient {
+  const { url, headers: headers_url } = parseUrl(url_)
+
   return {
     async request(params) {
       const {
@@ -116,6 +118,7 @@ export function getHttpRpcClient(
                     ...body,
                   }),
               headers: {
+                ...headers_url,
                 'Content-Type': 'application/json',
                 ...headers,
               },
@@ -152,6 +155,14 @@ export function getHttpRpcClient(
         }
 
         if (!response.ok) {
+          // If the response body contains a valid JSON-RPC error, return it
+          // so it flows through the normal RPC error handling pipeline.
+          if (
+            typeof data.error?.code === 'number' &&
+            typeof data.error?.message === 'string'
+          )
+            return data
+
           throw new HttpRequestError({
             body,
             details: stringify(data.error) || response.statusText,
@@ -172,5 +183,32 @@ export function getHttpRpcClient(
         })
       }
     },
+  }
+}
+
+/** @internal */
+export function parseUrl(url_: string) {
+  try {
+    const url = new URL(url_)
+
+    const result = (() => {
+      // Handle Basic authentication credentials
+      if (url.username) {
+        const credentials = `${decodeURIComponent(url.username)}:${decodeURIComponent(url.password)}`
+        url.username = ''
+        url.password = ''
+
+        return {
+          url: url.toString(),
+          headers: { Authorization: `Basic ${btoa(credentials)}` },
+        }
+      }
+
+      return
+    })()
+
+    return { url: url.toString(), ...result }
+  } catch {
+    return { url: url_ }
   }
 }

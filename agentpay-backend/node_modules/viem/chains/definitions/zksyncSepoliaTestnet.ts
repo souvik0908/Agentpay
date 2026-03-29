@@ -3,6 +3,7 @@ import { chainConfig } from '../../zksync/chainConfig.js'
 
 export const zksyncSepoliaTestnet = /*#__PURE__*/ defineChain({
   ...chainConfig,
+  blockTime: 200,
   id: 300,
   name: 'ZKsync Sepolia Testnet',
   network: 'zksync-sepolia-testnet',
@@ -15,11 +16,6 @@ export const zksyncSepoliaTestnet = /*#__PURE__*/ defineChain({
   },
   blockExplorers: {
     default: {
-      name: 'Etherscan',
-      url: 'https://sepolia-era.zksync.network/',
-      apiUrl: 'https://api-sepolia-era.zksync.network/api',
-    },
-    native: {
       name: 'ZKsync Explorer',
       url: 'https://sepolia.explorer.zksync.io/',
       blockExplorerApi: 'https://block-explorer-api.sepolia.zksync.dev/api',

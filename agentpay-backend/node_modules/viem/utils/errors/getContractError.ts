@@ -12,7 +12,7 @@ import {
   RawContractError,
 } from '../../errors/contract.js'
 import { RpcRequestError } from '../../errors/request.js'
-import { InternalRpcError } from '../../errors/rpc.js'
+import { InternalRpcError, InvalidInputRpcError } from '../../errors/rpc.js'
 import type { ErrorType } from '../../errors/utils.js'
 
 const EXECUTION_REVERTED_ERROR_CODE = 3
@@ -57,10 +57,13 @@ export function getContractError<err extends ErrorType<string>>(
 
   const cause = (() => {
     if (err instanceof AbiDecodingZeroDataError)
-      return new ContractFunctionZeroDataError({ functionName })
+      return new ContractFunctionZeroDataError({ functionName, cause: err })
     if (
-      [EXECUTION_REVERTED_ERROR_CODE, InternalRpcError.code].includes(code) &&
-      (data || details || message || shortMessage)
+      ([EXECUTION_REVERTED_ERROR_CODE, InternalRpcError.code].includes(code) &&
+        (data || details || message || shortMessage)) ||
+      (code === InvalidInputRpcError.code &&
+        details === 'execution reverted' &&
+        data)
     ) {
       return new ContractFunctionRevertedError({
         abi,
@@ -70,6 +73,7 @@ export function getContractError<err extends ErrorType<string>>(
           error instanceof RpcRequestError
             ? details
             : (shortMessage ?? message),
+        cause: err,
       })
     }
     return err

@@ -1,0 +1,26 @@
+{
+  "type": "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
+  "name": "AgentPay Alpha",
+  "description": "An MCP-enabled autonomous agent provisioned by AgentPay.",
+  "image": "https://ideal-goldfish-6qxqw75v6573xwg-3001.app.github.dev/agentpay.png",
+  "services": [
+    {
+      "name": "web",
+      "endpoint": "https://ideal-goldfish-6qxqw75v6573xwg-3001.app.github.dev/agents/agentpay-alpha"
+    },
+    {
+      "name": "MCP",
+      "endpoint": "https://ideal-goldfish-6qxqw75v6573xwg-3001.app.github.dev/mcp/sse",
+      "version": "2025-06-18"
+    }
+  ],
+  "x402Support": false,
+  "active": true,
+  "registrations": [],
+  "supportedTrust": [
+    "reputation"
+  ],
+  "operatorWallet": "0xfC18367F2c48104A387949392c27cbC8e906581A",
+  "dailyLimit": 5,
+  "slug": "agentpay-alpha"
+}

@@ -88,6 +88,12 @@ export {
   estimateMaxPriorityFeePerGas,
 } from './public/estimateMaxPriorityFeePerGas.js'
 export {
+  type FillTransactionErrorType,
+  type FillTransactionParameters,
+  type FillTransactionReturnType,
+  fillTransaction,
+} from './public/fillTransaction.js'
+export {
   type GetBalanceErrorType,
   type GetBalanceParameters,
   type GetBalanceReturnType,
@@ -141,6 +147,12 @@ export {
   type GetContractEventsReturnType,
   getContractEvents,
 } from './public/getContractEvents.js'
+export {
+  type GetDelegationErrorType,
+  type GetDelegationParameters,
+  type GetDelegationReturnType,
+  getDelegation,
+} from './public/getDelegation.js'
 export {
   type GetEip712DomainErrorType,
   type GetEip712DomainParameters,

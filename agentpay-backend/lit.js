@@ -1,56 +1,135 @@
-require('dotenv').config();
-const { LitNodeClient } = require('@lit-protocol/lit-node-client');
-const { LitContracts } = require('@lit-protocol/contracts-sdk');
-const { ethers } = require('ethers');
+const { Wallet } = require("ethers");
+require("dotenv").config();
 
-// Initialize the Lit Node Client on the current testnet using the explicit string
-const litNodeClient = new LitNodeClient({
-  litNetwork: 'datil-test',
-  debug: false
-});
-
-async function mintAgentWallet(userWalletAddress) {
-    try {
-        console.log("🟡 Connecting to Lit Protocol Datil-Test Network...");
-        await litNodeClient.connect();
-
-        const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
-        const masterWallet = new ethers.Wallet(process.env.MASTER_PRIVATE_KEY, provider);
-
-        console.log("🟡 Connecting to Base Sepolia Contracts...");
-        const litContracts = new LitContracts({
-            signer: masterWallet,
-            // Use the explicit string here too
-            network: 'datil-test',
-        });
-        await litContracts.connect();
-
-        console.log(`🟡 Minting PKP for operator: ${userWalletAddress}...`);
-        
-        const mintTx = await litContracts.pkpNftContract.write.mintNext(2, {
-            value: 0, 
-        });
-        
-        console.log(`🟡 Waiting for transaction confirmation...`);
-        const receipt = await mintTx.wait();
-
-        const pkpInfo = await litContracts.pkpNftContract.read.getTokensByAddress(masterWallet.address);
-        const latestPkp = pkpInfo[pkpInfo.length - 1];
-
-        const agentWalletAddress = await litContracts.pubkeyRouterContract.read.ethAddress(latestPkp);
-
-        console.log(`🟢 Success! Agent Wallet Minted: ${agentWalletAddress}`);
-        
-        return {
-            pkpAddress: agentWalletAddress,
-            tokenId: latestPkp.toString(),
-            txHash: receipt.hash
-        };
-
-    } catch (error) {
-        console.error("🔴 Lit Protocol Error:", error);
-        throw error;
-    }
+function requireEnv(name) {
+  const value = process.env[name];
+  if (!value || !value.trim()) {
+    throw new Error(`Missing required env var: ${name}`);
+  }
+  return value.trim();
 }
 
-module.exports = { mintAgentWallet };
+const state = {
+  currentAgent: null
+};
+
+async function loadVincentExpressMiddleware() {
+  return import("@lit-protocol/vincent-app-sdk/expressMiddleware");
+}
+
+async function loadVincentAbilityClient() {
+  return import("@lit-protocol/vincent-app-sdk/abilityClient");
+}
+
+async function loadSendTokensAbility() {
+  return import("@saucereon/send-tokens-ability");
+}
+
+async function buildAuthHelpers() {
+  const { getAuthenticateUserExpressHandler, authenticatedRequestHandler } =
+    await loadVincentExpressMiddleware();
+
+  const authenticateUser = getAuthenticateUserExpressHandler(
+    requireEnv("VINCENT_ALLOWED_AUDIENCE")
+  );
+
+  return {
+    authenticateUser,
+    authenticatedRequestHandler
+  };
+}
+
+function setProvisionedAgent(agent) {
+  state.currentAgent = agent;
+}
+
+function getProvisionedAgent() {
+  if (!state.currentAgent) {
+    throw new Error("No provisioned Vincent agent session found. Run /api/provision first.");
+  }
+  return state.currentAgent;
+}
+
+/**
+ * This is where you may need to tweak the ability param names after testing,
+ * because the generic Vincent docs explain execute(params) but do not provide
+ * the exact schema for @saucereon/send-tokens-ability. The rest of the flow is real.
+ */
+function buildSendTokensAbilityParams({
+  recipientAddress,
+  amount,
+  tokenAddress
+}) {
+  if (tokenAddress) {
+    return {
+      to: recipientAddress,
+      amount: String(amount),
+      tokenAddress
+    };
+  }
+
+  return {
+    to: recipientAddress,
+    amount: String(amount)
+  };
+}
+
+async function executeBaseSepoliaSend({
+  recipientAddress,
+  amount,
+  tokenAddress
+}) {
+  const { getVincentAbilityClient } = await loadVincentAbilityClient();
+  const sendTokensModule = await loadSendTokensAbility();
+
+  const bundledVincentAbility =
+    sendTokensModule.bundledVincentAbility ||
+    sendTokensModule.default ||
+    sendTokensModule;
+
+  const delegateeSigner = new Wallet(
+    requireEnv("VINCENT_DELEGATEE_PRIVATE_KEY")
+  );
+
+  const abilityClient = getVincentAbilityClient({
+    ethersSigner: delegateeSigner,
+    bundledVincentAbility
+  });
+
+  const agent = getProvisionedAgent();
+
+  const abilityParams = buildSendTokensAbilityParams({
+    recipientAddress,
+    amount,
+    tokenAddress
+  });
+
+  const context = {
+    delegatorPkpEthAddress: agent.pkpAddress,
+    agentAddress: agent.agentAddress || agent.pkpAddress
+  };
+
+  const precheckResult = await abilityClient.precheck(abilityParams, context);
+
+  if (!precheckResult || precheckResult.success !== true) {
+    throw new Error(
+      `Vincent precheck failed: ${JSON.stringify(precheckResult)}`
+    );
+  }
+
+  const executeResult = await abilityClient.execute(abilityParams, context);
+
+  return {
+    precheckResult,
+    executeResult,
+    abilityParams,
+    context
+  };
+}
+
+module.exports = {
+  buildAuthHelpers,
+  setProvisionedAgent,
+  getProvisionedAgent,
+  executeBaseSepoliaSend
+};
